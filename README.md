@@ -87,6 +87,35 @@ For a fresh local SQLite smoke database, add `--create-tables`. Production datab
 
 The CLI prints a concise JSON summary with created/updated counts. A FastAPI endpoint is not included in PR2.
 
+## Query, review, and export APIs
+
+PR3 exposes DB-backed catalog APIs for downstream AI/review tooling. Authentication is intentionally not included yet.
+
+Endpoints:
+
+- `GET /projects` - list projects.
+- `GET /products` - list HK life products. Optional query parameters: `project_slug`, `insurer_id`, `review_status` (maps to product `status`). Each item includes project, insurer, canonical name, product type, status, version count, and latest version label.
+- `GET /products/{product_id}` - product detail with aliases, versions, latest metadata summary, and latest evidence IDs.
+- `GET /source-documents` - list source documents. Optional query parameters: `project_slug`, `limit` (default `100`, max `1000`), and `offset`.
+- `GET /review-tasks` - list review tasks. Optional query parameters: `project_slug` and `status`.
+- `POST /review-tasks` - create a review task. Body fields: `subject_type`, `subject_id`, optional `notes`, `priority` (default `0`), `status` (default `open`), and either `project_slug` or `project_id`.
+- `PATCH /review-tasks/{task_id}` - update review task `status`, `notes`, and/or `priority`.
+- `GET /exports/products.json` - export products as JSON for downstream consumers. Optional query parameter: `project_slug`.
+
+Example review task creation:
+
+```bash
+curl -X POST http://127.0.0.1:8000/review-tasks \
+  -H 'content-type: application/json' \
+  -d '{"project_slug":"hk-life","subject_type":"product","subject_id":"1","notes":"Verify benefits","priority":5}'
+```
+
+Example product export:
+
+```bash
+curl 'http://127.0.0.1:8000/exports/products.json?project_slug=hk-life'
+```
+
 ## Database and migrations
 
 Production is expected to use PostgreSQL via SQLAlchemy's psycopg driver:
