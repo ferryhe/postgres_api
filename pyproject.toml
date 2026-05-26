@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "postgres-api"
+version = "0.1.0"
+description = "FastAPI service skeleton with Postgres-ready schema for product catalog ingestion."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.13,<2.0",
+    "fastapi>=0.111,<1.0",
+    "psycopg[binary]>=3.1,<4.0",
+    "sqlalchemy>=2.0,<3.0",
+    "uvicorn[standard]>=0.30,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.27,<1.0",
+    "pytest>=8.2,<9.0",
+    "ruff>=0.5,<1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["postgres_api"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
