@@ -12,7 +12,7 @@ class ClientConfig(BaseModel):
     openapi_url: str
     docs_url: str
     features: list[str]
-    review_statuses: list[str]
+    review_statuses: list[ReviewTaskStatus]
     base_path: str
     paths: dict[str, str]
 

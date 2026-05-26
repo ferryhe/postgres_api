@@ -116,9 +116,9 @@ Example product export:
 curl 'http://127.0.0.1:8000/exports/products.json?project_slug=hk-life&limit=100&offset=0'
 ```
 
-## ai_interface integration (PR4)
+## ai_interface integration
 
-PR4 adds a minimal contract for local `ai_interface` frontend integration without adding authentication or DB migrations.
+This service includes a minimal contract for local `ai_interface` frontend integration without adding authentication or DB migrations.
 
 - Base URL for local development: `http://127.0.0.1:8000`.
 - Enable browser CORS only when needed by setting `CORS_ORIGINS` to a comma-separated allow-list of explicit `http://` or `https://` origins, for example `CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`. Wildcard (`*`), `null`, `file://`, and entries with paths, query strings, or fragments are rejected. When unset or empty, CORS middleware is not installed.
@@ -134,7 +134,7 @@ Recommended ai_interface call sequence:
 4. Fetch details with `GET /products/{product_id}` and supporting documents with `GET /source-documents?project_slug=...`.
 5. Read review work via `GET /review-tasks?project_slug=...`; only call `POST /review-tasks` or `PATCH /review-tasks/{task_id}` from ai_interface flows that intentionally gate writes.
 
-Authentication and authorization remain out of scope for this service at PR4. Browser-facing deployments should add auth at the gateway or application layer before exposing write endpoints.
+Authentication and authorization remain out of scope for this service. Browser-facing deployments should add auth at the gateway or application layer before exposing write endpoints.
 
 ## Database and migrations
 
