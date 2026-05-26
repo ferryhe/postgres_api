@@ -71,17 +71,22 @@ curl 'http://127.0.0.1:8000/exports/products.json?project_slug=hk-life'
 To inspect one product in detail, copy an `id` from the products response:
 
 ```bash
-curl http://127.0.0.1:8000/products/1
+PRODUCT_ID=<id-from-products-response>
+curl "http://127.0.0.1:8000/products/${PRODUCT_ID}"
 ```
 
 Review task smoke flow:
 
 ```bash
+PRODUCT_ID=<id-from-products-response>
+
 curl -X POST http://127.0.0.1:8000/review-tasks \
   -H 'content-type: application/json' \
-  -d '{"project_slug":"hk-life","subject_type":"product","subject_id":"1","notes":"Validate pilot extraction before advisor demo","priority":7}'
+  -d "{\"project_slug\":\"hk-life\",\"subject_type\":\"product\",\"subject_id\":\"${PRODUCT_ID}\",\"notes\":\"Validate pilot extraction before advisor demo\",\"priority\":7}"
 
-curl -X PATCH http://127.0.0.1:8000/review-tasks/1 \
+REVIEW_TASK_ID=<id-from-review-task-create-response>
+
+curl -X PATCH "http://127.0.0.1:8000/review-tasks/${REVIEW_TASK_ID}" \
   -H 'content-type: application/json' \
   -d '{"status":"in_progress","notes":"Assigned to reviewer","priority":4}'
 

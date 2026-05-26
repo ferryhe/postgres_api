@@ -38,6 +38,7 @@ def test_hk_life_pilot_import_and_api_acceptance(tmp_path) -> None:
         check=True,
         capture_output=True,
         text=True,
+        timeout=60,
     )
 
     summary = json.loads(completed.stdout)
