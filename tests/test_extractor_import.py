@@ -200,6 +200,54 @@ def test_shared_evidence_id_is_preserved_per_product_without_duplicate_span() ->
         assert session.scalar(select(func.count()).select_from(EvidenceSpan)) == 1
 
 
+def test_idless_evidence_entries_for_same_document_are_preserved() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    bundle = minimal_candidate_bundle()
+    first_evidence = bundle["products"][0]["evidence"][0]
+    first_evidence.pop("id")
+    second_evidence = deepcopy(first_evidence)
+    second_evidence.update(
+        {
+            "line_start": 12,
+            "line_end": 13,
+            "span_start": 126,
+            "span_end": 150,
+            "source_quote": "A separate id-less evidence quote.",
+        }
+    )
+    bundle["products"][0]["evidence"].append(second_evidence)
+
+    with Session(engine, expire_on_commit=False) as session:
+        summary = import_extractor_bundle(
+            session,
+            bundle,
+            project_slug="hk-life",
+            project_name="HK Life",
+            insurer_name="Manulife",
+        )
+
+        assert summary.source_documents_created == 1
+        assert summary.evidence_spans_created == 2
+
+    with Session(engine) as session:
+        document = session.scalar(select(SourceDocument))
+        assert document is not None
+        evidence_metadata = document.document_metadata["evidence"]
+        assert len(evidence_metadata) == 2
+        assert [item["id"] for item in evidence_metadata] == [None, None]
+        assert [item["source_quote"] for item in evidence_metadata] == [
+            "Surrender charges may apply.",
+            "A separate id-less evidence quote.",
+        ]
+
+        version = session.scalar(select(HKLifeProductVersion))
+        assert version is not None
+        assert len(version.product_metadata["evidence_ids"]) == 2
+        assert len(set(version.product_metadata["evidence_ids"])) == 2
+
+
 def test_same_insurer_and_product_name_can_exist_in_multiple_projects() -> None:
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)

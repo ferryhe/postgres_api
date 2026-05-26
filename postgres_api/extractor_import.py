@@ -153,7 +153,6 @@ def import_extractor_bundle(
                 cache=source_documents_by_document_id,
                 summary=summary,
             )
-            session.flush()
             _upsert_evidence_span(session, source_document=document, evidence_data=evidence_data, summary=summary)
 
         _upsert_product_version(
@@ -391,12 +390,15 @@ def _merge_document_metadata(existing: dict[str, Any] | None, new: dict[str, Any
     merged.update({key: value for key, value in new.items() if key not in {"evidence", "source_ids"}})
     merged["source_ids"] = sorted(existing_source_ids | new_source_ids)
     existing_evidence = list(merged.get("evidence") or [])
-    seen_ids = {item.get("id") for item in existing_evidence if isinstance(item, Mapping)}
+    seen_keys = {_evidence_metadata_key(item) for item in existing_evidence if isinstance(item, Mapping)}
     for item in new.get("evidence") or []:
-        item_id = item.get("id") if isinstance(item, Mapping) else None
-        if item_id not in seen_ids:
+        if not isinstance(item, Mapping):
             existing_evidence.append(item)
-            seen_ids.add(item_id)
+            continue
+        item_key = _evidence_metadata_key(item)
+        if item_key not in seen_keys:
+            existing_evidence.append(item)
+            seen_keys.add(item_key)
     merged["evidence"] = existing_evidence
     return merged
 
@@ -412,7 +414,15 @@ def _evidence_metadata(evidence_data: Mapping[str, Any]) -> dict[str, Any]:
         "span_start": evidence_data.get("span_start"),
         "span_end": evidence_data.get("span_end"),
         "artifact_id": _coerce_str(evidence_data.get("artifact_id")),
+        "source_quote": _coerce_str(evidence_data.get("source_quote")),
     }
+
+
+def _evidence_metadata_key(evidence: Mapping[str, Any]) -> tuple[str, str]:
+    evidence_id = _coerce_str(evidence.get("id"))
+    if evidence_id is not None:
+        return ("id", evidence_id)
+    return ("fingerprint", _evidence_fingerprint(evidence))
 
 
 def _required_str(mapping: Mapping[str, Any], key: str) -> str:
