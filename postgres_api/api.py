@@ -241,13 +241,15 @@ def list_review_tasks(
     session: SessionDep,
     project_slug: str | None = None,
     status: str | None = None,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
 ) -> list[ReviewTaskRead]:
     statement = select(ReviewTask).options(selectinload(ReviewTask.project))
     if project_slug is not None:
         statement = statement.join(Project, ReviewTask.project_id == Project.id).where(Project.slug == project_slug)
     if status is not None:
         statement = statement.where(ReviewTask.status == status)
-    tasks = session.scalars(statement.order_by(ReviewTask.priority.desc(), ReviewTask.id)).all()
+    tasks = session.scalars(statement.order_by(ReviewTask.priority.desc(), ReviewTask.id).offset(offset).limit(limit)).all()
     return [_review_task_read(task) for task in tasks]
 
 

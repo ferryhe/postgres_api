@@ -97,7 +97,7 @@ Endpoints:
 - `GET /products` - list HK life products. Optional query parameters: `project_slug`, `insurer_id`, `review_status` (maps to product `status`), `limit` (default `50`, max `100`), and `offset`. Each item includes project, insurer, canonical name, product type, status, version count, and latest version label.
 - `GET /products/{product_id}` - product detail with aliases, versions, latest metadata summary, and latest evidence IDs.
 - `GET /source-documents` - list source documents. Optional query parameters: `project_slug`, `limit` (default `100`, max `1000`), and `offset`.
-- `GET /review-tasks` - list review tasks. Optional query parameters: `project_slug` and `status`.
+- `GET /review-tasks` - list review tasks. Optional query parameters: `project_slug`, `status`, `limit` (default `100`, max `1000`), and `offset`.
 - `POST /review-tasks` - create a review task. Body fields: `subject_type`, `subject_id`, optional `notes`, `priority` (default `0`, range `0..100`), `status` (default `open`), and either `project_slug` or `project_id`. Supported `subject_type` values are `product`, `source_document`, `ingestion_run`, and `artifact`; `subject_id` must be an integer ID for an existing row in the selected project. Extra request fields are rejected.
 - `PATCH /review-tasks/{task_id}` - update review task `status`, `notes`, and/or `priority`. Valid statuses are `open`, `in_progress`, `resolved`, `rejected`, and `closed`; priority must be in `0..100`; extra request fields are rejected.
 - `GET /exports/products.json` - export products as JSON for downstream consumers. Optional query parameters: `project_slug`, `limit` (default `100`, max `1000`), and `offset`.
