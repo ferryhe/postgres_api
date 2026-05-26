@@ -86,6 +86,7 @@ def upgrade() -> None:
         *timestamp_columns(),
         sa.UniqueConstraint("project_id", "url", name="uq_source_documents_project_url"),
         sa.UniqueConstraint("project_id", "sha256", name="uq_source_documents_project_sha256"),
+        sa.CheckConstraint("url IS NOT NULL OR sha256 IS NOT NULL", name="ck_source_documents_url_or_sha256"),
     )
     op.create_index("ix_source_documents_project_id", "source_documents", ["project_id"])
 

@@ -1,4 +1,6 @@
+import pytest
 from sqlalchemy import create_engine, event, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from postgres_api.db import Base
@@ -93,3 +95,15 @@ def test_project_delete_cascades_owned_children_sqlite() -> None:
             assert session.scalar(select(func.count()).select_from(model)) == 0
 
         assert session.scalar(select(func.count()).select_from(HKInsurer)) == 1
+
+
+def test_source_document_requires_url_or_sha256_sqlite() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        project = Project(slug="source-check", name="Source Check")
+        session.add(SourceDocument(project=project))
+
+        with pytest.raises(IntegrityError):
+            session.commit()

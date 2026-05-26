@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -73,6 +74,7 @@ class SourceDocument(TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("project_id", "url", name="uq_source_documents_project_url"),
         UniqueConstraint("project_id", "sha256", name="uq_source_documents_project_sha256"),
+        CheckConstraint("url IS NOT NULL OR sha256 IS NOT NULL", name="ck_source_documents_url_or_sha256"),
         Index("ix_source_documents_project_id", "project_id"),
     )
 
