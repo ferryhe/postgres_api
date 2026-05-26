@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+from copy import deepcopy
 
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
@@ -167,3 +168,101 @@ def test_import_extractor_cli_outputs_summary(tmp_path) -> None:
     assert output["products_seen"] == 1
     assert output["versions_created"] == 1
     assert output["source_documents_created"] == 1
+
+
+def test_shared_evidence_id_is_preserved_per_product_without_duplicate_span() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    bundle = minimal_candidate_bundle()
+    second_product = deepcopy(bundle["products"][0])
+    second_product["product_id"] = "prod-2"
+    second_product["product_identity"]["product_name"] = "Example Term Life"
+    bundle["products"].append(second_product)
+
+    with Session(engine, expire_on_commit=False) as session:
+        summary = import_extractor_bundle(
+            session,
+            bundle,
+            project_slug="hk-life",
+            project_name="HK Life",
+            insurer_name="Manulife",
+        )
+
+        assert summary.products_created == 2
+        assert summary.evidence_spans_created == 1
+        assert summary.evidence_spans_reused == 1
+
+    with Session(engine) as session:
+        versions = session.scalars(select(HKLifeProductVersion).order_by(HKLifeProductVersion.version_label)).all()
+        assert [version.product_metadata["evidence_ids"] for version in versions] == [["ev-1"], ["ev-1"]]
+        assert [version.product_metadata["source_ids"] for version in versions] == [["source-1"], ["source-1"]]
+        assert session.scalar(select(func.count()).select_from(EvidenceSpan)) == 1
+
+
+def test_same_insurer_and_product_name_can_exist_in_multiple_projects() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine, expire_on_commit=False) as session:
+        first = import_extractor_bundle(
+            session,
+            minimal_candidate_bundle(),
+            project_slug="project-one",
+            project_name="Project One",
+            insurer_name="Manulife",
+        )
+        first_product_id = session.scalar(select(HKLifeProduct.id).where(HKLifeProduct.project_id == first.project_id))
+
+    with Session(engine, expire_on_commit=False) as session:
+        second = import_extractor_bundle(
+            session,
+            minimal_candidate_bundle(),
+            project_slug="project-two",
+            project_name="Project Two",
+            insurer_name="Manulife",
+        )
+
+    with Session(engine) as session:
+        products = session.scalars(select(HKLifeProduct).order_by(HKLifeProduct.project_id)).all()
+        assert len(products) == 2
+        assert first_product_id is not None
+        assert products[0].id == first_product_id
+        assert products[0].project_id == first.project_id
+        assert products[1].project_id == second.project_id
+        assert products[0].canonical_name == products[1].canonical_name == "Example Whole Life"
+
+
+def test_synthetic_source_document_url_escapes_components_to_avoid_collisions() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    first_bundle = minimal_candidate_bundle()
+    first_bundle["fixture_set_id"] = "fixture/a"
+    first_bundle["products"][0]["evidence"][0]["document_id"] = "doc-1"
+
+    second_bundle = minimal_candidate_bundle()
+    second_bundle["fixture_set_id"] = "fixture"
+    second_bundle["products"][0]["evidence"][0]["id"] = "ev-2"
+    second_bundle["products"][0]["evidence"][0]["document_id"] = "a/doc-1"
+
+    with Session(engine, expire_on_commit=False) as session:
+        import_extractor_bundle(
+            session,
+            first_bundle,
+            project_slug="hk-life",
+            project_name="HK Life",
+            insurer_name="Manulife",
+        )
+        import_extractor_bundle(
+            session,
+            second_bundle,
+            project_slug="hk-life",
+            project_name="HK Life",
+            insurer_name="Manulife",
+        )
+
+    with Session(engine) as session:
+        urls = session.scalars(select(SourceDocument.url).order_by(SourceDocument.url)).all()
+        assert urls == ["extractor://fixture%2Fa/doc-1", "extractor://fixture/a%2Fdoc-1"]
+        assert session.scalar(select(func.count()).select_from(SourceDocument)) == 2

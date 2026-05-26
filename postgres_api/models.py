@@ -162,7 +162,12 @@ class HKInsurer(TimestampMixin, Base):
 class HKLifeProduct(TimestampMixin, Base):
     __tablename__ = "hk_life_products"
     __table_args__ = (
-        UniqueConstraint("insurer_id", "canonical_name", name="uq_hk_life_products_insurer_name"),
+        UniqueConstraint(
+            "project_id",
+            "insurer_id",
+            "canonical_name",
+            name="uq_hk_life_products_project_insurer_name",
+        ),
         Index("ix_hk_life_products_project_id", "project_id"),
     )
 

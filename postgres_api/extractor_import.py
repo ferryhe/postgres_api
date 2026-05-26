@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import quote
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -118,8 +119,6 @@ def import_extractor_bundle(
     )
 
     source_documents_by_document_id: dict[str, SourceDocument] = {}
-    seen_evidence_ids: set[str] = set()
-
     for product_data in products:
         if not isinstance(product_data, Mapping):
             summary.warnings.append("skipped non-object product")
@@ -130,15 +129,17 @@ def import_extractor_bundle(
 
         evidence_ids: list[str] = []
         source_ids: set[str] = set()
+        seen_product_evidence_ids: set[str] = set()
         for evidence_data in list(product_data.get("evidence") or []):
             if not isinstance(evidence_data, Mapping):
                 summary.warnings.append(f"skipped non-object evidence for product {product_data.get('product_id')}")
                 continue
             evidence_id = _coerce_str(evidence_data.get("id")) or _evidence_fingerprint(evidence_data)
-            if evidence_id in seen_evidence_ids:
-                summary.warnings.append(f"skipped duplicate evidence id in bundle: {evidence_id}")
+            if evidence_id in seen_product_evidence_ids:
+                product_id = product_data.get("product_id")
+                summary.warnings.append(f"skipped duplicate evidence id for product {product_id}: {evidence_id}")
                 continue
-            seen_evidence_ids.add(evidence_id)
+            seen_product_evidence_ids.add(evidence_id)
             evidence_ids.append(evidence_id)
             if evidence_data.get("source_id") is not None:
                 source_ids.add(str(evidence_data["source_id"]))
@@ -216,6 +217,7 @@ def _upsert_product(
     canonical_name = _coerce_str(identity.get("product_name")) or _required_str(product_data, "product_id")
     product = session.scalar(
         select(HKLifeProduct).where(
+            HKLifeProduct.project_id == project.id,
             HKLifeProduct.insurer_id == insurer.id,
             HKLifeProduct.canonical_name == canonical_name,
         )
@@ -231,7 +233,6 @@ def _upsert_product(
         session.add(product)
         summary.products_created += 1
     else:
-        product.project = project
         product.product_type = product_type
         summary.products_updated += 1
     return product
@@ -298,7 +299,7 @@ def _upsert_source_document(
         cached_document.document_metadata = _merge_document_metadata(cached_document.document_metadata, metadata)
         return cached_document
 
-    url = f"extractor://{fixture_set_id}/{document_id}"
+    url = _extractor_source_url(fixture_set_id=fixture_set_id, document_id=document_id)
     sha256 = hashlib.sha256(url.encode("utf-8")).hexdigest()
     document = session.scalar(select(SourceDocument).where(SourceDocument.project_id == project.id, SourceDocument.url == url))
     if document is None:
@@ -326,6 +327,10 @@ def _upsert_source_document(
 
     cache[document_id] = document
     return document
+
+
+def _extractor_source_url(*, fixture_set_id: str, document_id: str) -> str:
+    return f"extractor://{quote(fixture_set_id, safe='')}/{quote(document_id, safe='')}"
 
 
 def _source_document_metadata(
