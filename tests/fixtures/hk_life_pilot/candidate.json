@@ -1,0 +1,129 @@
+{
+  "schema_version": "0.1",
+  "fixture_set_id": "hk-life-pilot-2026-05",
+  "summary": {
+    "jurisdiction": "HK",
+    "insurers": 1,
+    "products": 2,
+    "documents": 3,
+    "notes": "Small deterministic HK life pilot bundle for postgres_api acceptance tests."
+  },
+  "review_metadata": {
+    "review_status": "candidate",
+    "prepared_for": "postgres_api PR5 pilot",
+    "created_by": "life_product_extractor fixture"
+  },
+  "unsupported_documents": [
+    {
+      "document_id": "hk-tax-general-faq.pdf",
+      "title": "General Hong Kong tax FAQ",
+      "reason": "Not a life insurance product source document"
+    }
+  ],
+  "products": [
+    {
+      "product_id": "gl-life-protect-elite",
+      "product_identity": {
+        "product_name": "Golden Lotus Life Protect Elite",
+        "jurisdiction": "HK",
+        "product_class_primary": "whole_life",
+        "product_class_secondary": ["participating", "protection"]
+      },
+      "source_document_ids": ["gl-life-protect-elite-brochure.pdf", "gl-life-protect-elite-policy.pdf"],
+      "paired_source_scenario_ids": ["gl-life-base-case"],
+      "decrements": [
+        {
+          "id": "gl-dec-surrender-charge",
+          "label": "Surrender charge may apply before the end of the premium payment period",
+          "evidence_refs": ["gl-ev-2"],
+          "confidence": 0.88,
+          "review_status": "candidate"
+        }
+      ],
+      "benefits": [
+        {
+          "id": "gl-ben-death-benefit",
+          "label": "Death benefit includes guaranteed cash value plus non-guaranteed terminal dividend where applicable",
+          "evidence_refs": ["gl-ev-1"],
+          "confidence": 0.9,
+          "review_status": "candidate"
+        }
+      ],
+      "explicit_unknowns": [
+        {
+          "id": "gl-unk-premium-holiday",
+          "label": "Premium holiday availability requires confirmation in full policy terms",
+          "evidence_refs": ["gl-ev-2"],
+          "review_status": "needs_review"
+        }
+      ],
+      "evidence": [
+        {
+          "id": "gl-ev-1",
+          "source_id": "gl-brochure",
+          "document_id": "gl-life-protect-elite-brochure.pdf",
+          "section_id": "benefits",
+          "line_start": 18,
+          "line_end": 20,
+          "span_start": 530,
+          "span_end": 690,
+          "source_quote": "The plan pays a death benefit equal to the guaranteed cash value plus any terminal dividend declared by the Company."
+        },
+        {
+          "id": "gl-ev-2",
+          "source_id": "gl-policy",
+          "document_id": "gl-life-protect-elite-policy.pdf",
+          "section_id": "surrender",
+          "line_start": 44,
+          "line_end": 46,
+          "span_start": 1420,
+          "span_end": 1598,
+          "source_quote": "If the policy is surrendered before all planned premiums are paid, a surrender charge may be deducted from policy value."
+        }
+      ]
+    },
+    {
+      "product_id": "harbour-term-choice",
+      "product_identity": {
+        "product_name": "Harbour Term Choice",
+        "jurisdiction": "HK",
+        "product_class_primary": "term_life",
+        "product_class_secondary": ["protection", "renewable"]
+      },
+      "source_document_ids": ["harbour-term-choice-brochure.pdf"],
+      "paired_source_scenario_ids": ["harbour-term-20-year"],
+      "decrements": [
+        {
+          "id": "ht-dec-expiry",
+          "label": "Coverage ends at expiry if no renewal option is exercised",
+          "evidence_refs": ["ht-ev-1"],
+          "confidence": 0.86,
+          "review_status": "candidate"
+        }
+      ],
+      "benefits": [
+        {
+          "id": "ht-ben-level-cover",
+          "label": "Level sum assured during the selected policy term",
+          "evidence_refs": ["ht-ev-1"],
+          "confidence": 0.92,
+          "review_status": "candidate"
+        }
+      ],
+      "explicit_unknowns": [],
+      "evidence": [
+        {
+          "id": "ht-ev-1",
+          "source_id": "ht-brochure",
+          "document_id": "harbour-term-choice-brochure.pdf",
+          "section_id": "coverage",
+          "line_start": 12,
+          "line_end": 15,
+          "span_start": 310,
+          "span_end": 512,
+          "source_quote": "Harbour Term Choice provides a level sum assured for the selected term and may be renewed subject to the policy provisions then in force."
+        }
+      ]
+    }
+  ]
+}
