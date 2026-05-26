@@ -175,12 +175,24 @@ def _validate_review_subject(session: Session, *, project: Project, subject_type
         raise HTTPException(status_code=404, detail="subject not found in project")
 
 
-@router.get("/projects", response_model=list[ProjectRead])
+@router.get(
+    "/projects",
+    response_model=list[ProjectRead],
+    summary="List projects",
+    description="Return catalog projects ordered by slug.",
+    operation_id="listProjects",
+)
 def list_projects(session: SessionDep) -> list[ProjectRead]:
     return list(session.scalars(select(Project).order_by(Project.slug)))
 
 
-@router.get("/products", response_model=list[ProductListItem])
+@router.get(
+    "/products",
+    response_model=list[ProductListItem],
+    summary="List products",
+    description="Return paginated HK life products with nested project, insurer, and latest-version summary fields.",
+    operation_id="listProducts",
+)
 def list_products(
     session: SessionDep,
     project_slug: str | None = None,
@@ -206,7 +218,13 @@ def list_products(
     return [_product_list_item(product) for product in products]
 
 
-@router.get("/products/{product_id}", response_model=ProductDetail)
+@router.get(
+    "/products/{product_id}",
+    response_model=ProductDetail,
+    summary="Get product detail",
+    description="Return one product with aliases, versions, latest metadata summary, and evidence IDs.",
+    operation_id="getProduct",
+)
 def get_product(product_id: int, session: SessionDep) -> ProductDetail:
     product = session.scalar(
         select(HKLifeProduct)
@@ -223,7 +241,13 @@ def get_product(product_id: int, session: SessionDep) -> ProductDetail:
     return _product_detail(product)
 
 
-@router.get("/source-documents", response_model=list[SourceDocumentRead])
+@router.get(
+    "/source-documents",
+    response_model=list[SourceDocumentRead],
+    summary="List source documents",
+    description="Return paginated source documents, optionally filtered by project slug.",
+    operation_id="listSourceDocuments",
+)
 def list_source_documents(
     session: SessionDep,
     project_slug: str | None = None,
@@ -237,7 +261,13 @@ def list_source_documents(
     return [_source_document_read(document) for document in documents]
 
 
-@router.get("/review-tasks", response_model=list[ReviewTaskRead])
+@router.get(
+    "/review-tasks",
+    response_model=list[ReviewTaskRead],
+    summary="List review tasks",
+    description="Return paginated review tasks, optionally filtered by project slug and review status.",
+    operation_id="listReviewTasks",
+)
 def list_review_tasks(
     session: SessionDep,
     project_slug: str | None = None,
@@ -254,7 +284,14 @@ def list_review_tasks(
     return [_review_task_read(task) for task in tasks]
 
 
-@router.post("/review-tasks", response_model=ReviewTaskRead, status_code=201)
+@router.post(
+    "/review-tasks",
+    response_model=ReviewTaskRead,
+    status_code=201,
+    summary="Create review task",
+    description="Create a review task for a supported subject in a project. Authentication is not enforced by this service yet.",
+    operation_id="createReviewTask",
+)
 def create_review_task(payload: ReviewTaskCreate, session: SessionDep) -> ReviewTaskRead:
     project = _get_project(session, project_slug=payload.project_slug, project_id=payload.project_id)
     _validate_review_subject(
@@ -277,7 +314,13 @@ def create_review_task(payload: ReviewTaskCreate, session: SessionDep) -> Review
     return _review_task_read(task)
 
 
-@router.patch("/review-tasks/{task_id}", response_model=ReviewTaskRead)
+@router.patch(
+    "/review-tasks/{task_id}",
+    response_model=ReviewTaskRead,
+    summary="Update review task",
+    description="Update status, notes, or priority for an existing review task.",
+    operation_id="updateReviewTask",
+)
 def update_review_task(task_id: int, payload: ReviewTaskUpdate, session: SessionDep) -> ReviewTaskRead:
     task = session.scalar(select(ReviewTask).where(ReviewTask.id == task_id).options(selectinload(ReviewTask.project)))
     if task is None:
@@ -290,7 +333,13 @@ def update_review_task(task_id: int, payload: ReviewTaskUpdate, session: Session
     return _review_task_read(task)
 
 
-@router.get("/exports/products.json", response_model=ProductsExport)
+@router.get(
+    "/exports/products.json",
+    response_model=ProductsExport,
+    summary="Export products JSON",
+    description="Return product detail records in a compact export envelope for downstream consumers.",
+    operation_id="exportProductsJson",
+)
 def export_products(
     session: SessionDep,
     project_slug: str | None = None,
