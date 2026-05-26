@@ -121,7 +121,7 @@ curl 'http://127.0.0.1:8000/exports/products.json?project_slug=hk-life&limit=100
 PR4 adds a minimal contract for local `ai_interface` frontend integration without adding authentication or DB migrations.
 
 - Base URL for local development: `http://127.0.0.1:8000`.
-- Enable browser CORS only when needed by setting `CORS_ORIGINS` to a comma-separated allow-list, for example `CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`. When unset or empty, CORS middleware is not installed.
+- Enable browser CORS only when needed by setting `CORS_ORIGINS` to a comma-separated allow-list of explicit `http://` or `https://` origins, for example `CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`. Wildcard (`*`), `null`, `file://`, and entries with paths, query strings, or fragments are rejected. When unset or empty, CORS middleware is not installed.
 - OpenAPI schema for typed client generation: `GET /openapi.json`.
 - Interactive API docs: `GET /docs`.
 - Frontend bootstrap contract: `GET /client-config`, returning service/version metadata, stable paths, feature flags, and valid review task statuses.
