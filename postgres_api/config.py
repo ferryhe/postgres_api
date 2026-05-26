@@ -36,6 +36,8 @@ def _parse_cors_origins_env(value: str | None) -> list[str]:
             raise ValueError(f"CORS_ORIGINS entries must be valid origins: {origin!r}") from exc
         if parsed.scheme not in {"http", "https"} or not parsed.netloc or not hostname:
             raise ValueError(f"CORS_ORIGINS entries must be explicit http(s) origins: {origin!r}")
+        if "*" in hostname:
+            raise ValueError(f"CORS_ORIGINS entries must not include wildcard hosts: {origin!r}")
         if parsed.path or parsed.params or parsed.query or parsed.fragment:
             raise ValueError(f"CORS_ORIGINS entries must not include path, query, or fragment: {origin!r}")
         if parsed.username or parsed.password:

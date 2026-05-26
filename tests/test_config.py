@@ -37,6 +37,8 @@ def test_get_settings_rejects_wildcard_cors_origin(monkeypatch) -> None:
         "file:///tmp/index.html",
         "ftp://example.com",
         "localhost:5173",
+        "http://*",
+        "https://*.example.com",
         "https://example.com/path",
         "https://example.com?debug=true",
         "https://example.com#fragment",
