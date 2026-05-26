@@ -1,12 +1,14 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ReviewTaskStatus = Literal["open", "in_progress", "resolved", "rejected", "closed"]
 
 
 class ProjectRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     slug: str
     name: str
@@ -108,6 +110,15 @@ class ReviewTaskUpdate(BaseModel):
     status: ReviewTaskStatus | None = None
     notes: str | None = None
     priority: int | None = Field(default=None, ge=0, le=100)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_status_and_priority(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            null_fields = [field for field in ("status", "priority") if field in data and data[field] is None]
+            if null_fields:
+                raise ValueError(f"{', '.join(null_fields)} may not be null")
+        return data
 
 
 class ProductsExport(BaseModel):

@@ -102,6 +102,16 @@ def test_list_products_after_importer(client: TestClient) -> None:
     assert products[0]["latest_version_label"] == "fixture-a:prod-1:v0.1"
 
 
+def test_list_projects_response_serializes_orm_instances(client: TestClient) -> None:
+    response = client.get("/projects")
+
+    assert response.status_code == 200
+    projects = response.json()
+    assert len(projects) == 1
+    assert projects[0]["slug"] == "hk-life"
+    assert projects[0]["name"] == "HK Life"
+
+
 def test_list_products_pagination(client: TestClient) -> None:
     response = client.get("/products", params={"project_slug": "hk-life", "limit": 1, "offset": 1})
 
@@ -250,6 +260,28 @@ def test_review_task_input_validation(client: TestClient) -> None:
 
     invalid_priority_response = client.post("/review-tasks", json={**base_payload, "priority": 101})
     assert invalid_priority_response.status_code == 422
+
+
+def test_update_review_task_rejects_null_status_and_priority(client: TestClient) -> None:
+    project = client.get("/projects").json()[0]
+    create_response = client.post(
+        "/review-tasks",
+        json={"project_slug": project["slug"], "subject_type": "product", "subject_id": "1"},
+    )
+    assert create_response.status_code == 201
+    task_id = create_response.json()["id"]
+
+    null_status_response = client.patch(f"/review-tasks/{task_id}", json={"status": None})
+    assert null_status_response.status_code == 422
+
+    null_priority_response = client.patch(f"/review-tasks/{task_id}", json={"priority": None})
+    assert null_priority_response.status_code == 422
+
+
+def test_list_review_tasks_rejects_invalid_status_filter(client: TestClient) -> None:
+    response = client.get("/review-tasks", params={"status": "pending"})
+
+    assert response.status_code == 422
 
 
 def test_create_review_task_requires_project(client: TestClient) -> None:

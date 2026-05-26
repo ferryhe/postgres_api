@@ -25,6 +25,7 @@ from postgres_api.schemas import (
     ProjectRead,
     ReviewTaskCreate,
     ReviewTaskRead,
+    ReviewTaskStatus,
     ReviewTaskUpdate,
     SourceDocumentRead,
 )
@@ -240,7 +241,7 @@ def list_source_documents(
 def list_review_tasks(
     session: SessionDep,
     project_slug: str | None = None,
-    status: str | None = None,
+    status: ReviewTaskStatus | None = None,
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ) -> list[ReviewTaskRead]:
