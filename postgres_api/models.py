@@ -27,17 +27,28 @@ class TimestampMixin:
 
 class Project(TimestampMixin, Base):
     __tablename__ = "projects"
+    __table_args__ = (Index("ix_projects_slug", "slug", unique=True),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    slug: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
 
-    ingestion_runs: Mapped[list["IngestionRun"]] = relationship(back_populates="project")
-    source_documents: Mapped[list["SourceDocument"]] = relationship(back_populates="project")
-    artifacts: Mapped[list["Artifact"]] = relationship(back_populates="project")
-    review_tasks: Mapped[list["ReviewTask"]] = relationship(back_populates="project")
-    hk_life_products: Mapped[list["HKLifeProduct"]] = relationship(back_populates="project")
+    ingestion_runs: Mapped[list["IngestionRun"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    source_documents: Mapped[list["SourceDocument"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    artifacts: Mapped[list["Artifact"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    review_tasks: Mapped[list["ReviewTask"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    hk_life_products: Mapped[list["HKLifeProduct"]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class IngestionRun(TimestampMixin, Base):
@@ -53,8 +64,8 @@ class IngestionRun(TimestampMixin, Base):
     run_metadata: Mapped[dict | None] = mapped_column(JSON)
 
     project: Mapped[Project] = relationship(back_populates="ingestion_runs")
-    source_documents: Mapped[list["SourceDocument"]] = relationship(back_populates="ingestion_run")
-    artifacts: Mapped[list["Artifact"]] = relationship(back_populates="ingestion_run")
+    source_documents: Mapped[list["SourceDocument"]] = relationship(back_populates="ingestion_run", passive_deletes=True)
+    artifacts: Mapped[list["Artifact"]] = relationship(back_populates="ingestion_run", passive_deletes=True)
 
 
 class SourceDocument(TimestampMixin, Base):
@@ -77,7 +88,9 @@ class SourceDocument(TimestampMixin, Base):
 
     project: Mapped[Project] = relationship(back_populates="source_documents")
     ingestion_run: Mapped[IngestionRun | None] = relationship(back_populates="source_documents")
-    evidence_spans: Mapped[list["EvidenceSpan"]] = relationship(back_populates="source_document")
+    evidence_spans: Mapped[list["EvidenceSpan"]] = relationship(
+        back_populates="source_document", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class Artifact(TimestampMixin, Base):
@@ -139,7 +152,9 @@ class HKInsurer(TimestampMixin, Base):
     ia_code: Mapped[str | None] = mapped_column(String(80))
     website_url: Mapped[str | None] = mapped_column(Text)
 
-    products: Mapped[list["HKLifeProduct"]] = relationship(back_populates="insurer")
+    products: Mapped[list["HKLifeProduct"]] = relationship(
+        back_populates="insurer", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class HKLifeProduct(TimestampMixin, Base):
@@ -158,8 +173,12 @@ class HKLifeProduct(TimestampMixin, Base):
 
     project: Mapped[Project] = relationship(back_populates="hk_life_products")
     insurer: Mapped[HKInsurer] = relationship(back_populates="products")
-    versions: Mapped[list["HKLifeProductVersion"]] = relationship(back_populates="product")
-    aliases: Mapped[list["HKLifeProductAlias"]] = relationship(back_populates="product")
+    versions: Mapped[list["HKLifeProductVersion"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan", passive_deletes=True
+    )
+    aliases: Mapped[list["HKLifeProductAlias"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan", passive_deletes=True
+    )
 
 
 class HKLifeProductVersion(TimestampMixin, Base):

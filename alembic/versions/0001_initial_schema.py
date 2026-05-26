@@ -32,9 +32,8 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         *timestamp_columns(),
-        sa.UniqueConstraint("slug", name="uq_projects_slug"),
     )
-    op.create_index("ix_projects_slug", "projects", ["slug"])
+    op.create_index("ix_projects_slug", "projects", ["slug"], unique=True)
 
     op.create_table(
         "hk_insurers",

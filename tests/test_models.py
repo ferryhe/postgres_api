@@ -1,13 +1,17 @@
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import Session
 
 from postgres_api.db import Base
 from postgres_api.models import (
+    Artifact,
+    EvidenceSpan,
     HKInsurer,
     HKLifeProduct,
     HKLifeProductAlias,
     HKLifeProductVersion,
+    IngestionRun,
     Project,
+    ReviewTask,
     SourceDocument,
 )
 
@@ -41,3 +45,51 @@ def test_model_crud_smoke_sqlite() -> None:
         assert loaded is not None
         assert loaded.insurer.canonical_name == "Example Life Insurance"
         assert loaded.aliases[0].alias == "Example WL"
+
+
+def test_project_delete_cascades_owned_children_sqlite() -> None:
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+
+    @event.listens_for(engine, "connect")
+    def enable_foreign_keys(dbapi_connection, _connection_record) -> None:
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")
+
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        project = Project(slug="cascade", name="Cascade")
+        ingestion_run = IngestionRun(project=project, status="completed")
+        source = SourceDocument(project=project, ingestion_run=ingestion_run, url="https://example.test/doc")
+        source.evidence_spans.append(EvidenceSpan(quote="quoted evidence"))
+        artifact = Artifact(project=project, ingestion_run=ingestion_run, artifact_type="snapshot", uri="s3://bucket/key")
+        review_task = ReviewTask(project=project, subject_type="document", subject_id="1")
+        insurer = HKInsurer(canonical_name="Cascade Life")
+        product = HKLifeProduct(project=project, insurer=insurer, canonical_name="Cascade Product")
+        product.versions.append(HKLifeProductVersion(version_label="v1"))
+        product.aliases.append(HKLifeProductAlias(alias="Cascade Alias"))
+
+        session.add_all([project, ingestion_run, source, artifact, review_task, insurer, product])
+        session.commit()
+        project_id = project.id
+
+    with Session(engine) as session:
+        project = session.get(Project, project_id)
+        assert project is not None
+        session.delete(project)
+        session.commit()
+
+    with Session(engine) as session:
+        for model in (
+            Project,
+            IngestionRun,
+            SourceDocument,
+            EvidenceSpan,
+            Artifact,
+            ReviewTask,
+            HKLifeProduct,
+            HKLifeProductVersion,
+            HKLifeProductAlias,
+        ):
+            assert session.scalar(select(func.count()).select_from(model)) == 0
+
+        assert session.scalar(select(func.count()).select_from(HKInsurer)) == 1

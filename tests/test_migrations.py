@@ -27,3 +27,5 @@ def test_alembic_upgrade_sqlite(tmp_path, monkeypatch) -> None:
         "hk_life_product_versions",
         "hk_life_product_aliases",
     }.issubset(set(inspector.get_table_names()))
+
+    command.check(config)
