@@ -6,9 +6,10 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from postgres_api.config import Settings
 from postgres_api.db import Base, get_session
 from postgres_api.extractor_import import import_extractor_bundle
-from postgres_api.main import app
+from postgres_api.main import app, create_app
 from postgres_api.models import Artifact, HKLifeProduct, HKLifeProductAlias, IngestionRun, Project
 
 
@@ -110,6 +111,71 @@ def test_list_projects_response_serializes_orm_instances(client: TestClient) -> 
     assert len(projects) == 1
     assert projects[0]["slug"] == "hk-life"
     assert projects[0]["name"] == "HK Life"
+
+
+def test_client_config_contract(client: TestClient) -> None:
+    response = client.get("/client-config")
+
+    assert response.status_code == 200
+    config = response.json()
+    assert config["service"] == "postgres_api"
+    assert config["version"] == "0.1.0"
+    assert config["openapi_url"] == "/openapi.json"
+    assert config["docs_url"] == "/docs"
+    assert config["base_path"] == "/"
+    assert config["review_statuses"] == ["open", "in_progress", "resolved", "rejected", "closed"]
+    assert "products" in config["features"]
+    assert config["paths"]["products"] == "/products"
+    assert config["paths"]["review_tasks"] == "/review-tasks"
+
+
+def test_cors_default_has_no_allowed_origin_header() -> None:
+    test_app = create_app(
+        Settings(
+            app_name="postgres_api",
+            app_version="0.1.0",
+            database_url="sqlite+pysqlite:///:memory:",
+            cors_origins=[],
+        )
+    )
+    response = TestClient(test_app).get("/health", headers={"Origin": "http://localhost:5173"})
+
+    assert response.status_code == 200
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_cors_allowed_origin_header() -> None:
+    test_app = create_app(
+        Settings(
+            app_name="postgres_api",
+            app_version="0.1.0",
+            database_url="sqlite+pysqlite:///:memory:",
+            cors_origins=["http://localhost:5173"],
+        )
+    )
+    response = TestClient(test_app).get("/health", headers={"Origin": "http://localhost:5173"})
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_openapi_contains_ai_interface_contract_paths_and_operation_ids(client: TestClient) -> None:
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    schema = response.json()
+    assert schema["info"]["title"] == "postgres_api catalog service"
+    assert schema["info"]["version"] == "0.1.0"
+    paths = schema["paths"]
+    assert "/products" in paths
+    assert "/products/{product_id}" in paths
+    assert "/review-tasks" in paths
+    assert "/client-config" in paths
+    assert paths["/products"]["get"]["operationId"] == "listProducts"
+    assert paths["/products/{product_id}"]["get"]["operationId"] == "getProduct"
+    assert paths["/review-tasks"]["get"]["operationId"] == "listReviewTasks"
+    assert paths["/review-tasks"]["post"]["operationId"] == "createReviewTask"
+    assert paths["/client-config"]["get"]["operationId"] == "getClientConfig"
 
 
 def test_list_products_pagination(client: TestClient) -> None:

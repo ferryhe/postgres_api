@@ -6,6 +6,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 ReviewTaskStatus = Literal["open", "in_progress", "resolved", "rejected", "closed"]
 
 
+class ClientConfig(BaseModel):
+    service: str
+    version: str
+    openapi_url: str
+    docs_url: str
+    features: list[str]
+    review_statuses: list[ReviewTaskStatus]
+    base_path: str
+    paths: dict[str, str]
+
+
 class ProjectRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
