@@ -12,7 +12,7 @@ This initial skeleton includes:
 - Pytest coverage for `/health`, SQLite model CRUD smoke, and Alembic upgrade on SQLite.
 - GitHub Actions CI for linting and tests.
 
-Import/extraction APIs are intentionally out of scope for PR1.
+Import/extraction APIs were intentionally out of scope for PR1. PR2 adds a CLI/service importer for `life_product_extractor` candidate and reviewed bundles; a FastAPI import endpoint remains intentionally deferred until service API requirements are clearer.
 
 ## Schema overview
 
@@ -62,6 +62,30 @@ Expected response:
 ```json
 {"status":"ok","service":"postgres_api","version":"0.1.0"}
 ```
+
+## Importing life_product_extractor bundles
+
+PR2 imports `life_product_extractor` `candidate.json` or `reviewed.json` bundles with top-level `schema_version` `0.1` into the existing schema. The importer:
+
+- upserts `projects` by slug, `hk_insurers` by canonical name, and `hk_life_products` by insurer + product name;
+- creates one `ingestion_runs` row per import with bundle summary/review metadata;
+- maps evidence documents to stable synthetic `source_documents` URLs like `extractor://{fixture_set_id}/{document_id}`;
+- writes quotes to `evidence_spans`; and
+- upserts product versions using labels like `{fixture_set_id}:{product_id}:v0.1`.
+
+CLI usage:
+
+```bash
+python -m postgres_api.import_extractor path/to/candidate.json \
+  --database-url "sqlite+pysqlite:///local.db" \
+  --project-slug hk-life \
+  --project-name "HK Life" \
+  --insurer-name "Manulife"
+```
+
+For a fresh local SQLite smoke database, add `--create-tables`. Production databases should be migrated with Alembic instead. The installed console script equivalent is `import-extractor`.
+
+The CLI prints a concise JSON summary with created/updated counts. A FastAPI endpoint is not included in PR2.
 
 ## Database and migrations
 
