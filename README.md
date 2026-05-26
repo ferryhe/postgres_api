@@ -87,6 +87,10 @@ For a fresh local SQLite smoke database, add `--create-tables`. Production datab
 
 The CLI prints a concise JSON summary with created/updated counts. A FastAPI endpoint is not included in PR2.
 
+## HK life pilot fixture and runbook
+
+PR5 adds a reusable end-to-end HK life pilot fixture at `tests/fixtures/hk_life_pilot/candidate.json`. It can be imported into local SQLite and exercised through the catalog, export, and review-task APIs. See `docs/hk_life_pilot_runbook.md` for the import command, API run command, smoke curl checks, `ai_interface` notes, acceptance checklist, and cleanup steps.
+
 ## Query, review, and export APIs
 
 PR3 exposes DB-backed catalog APIs for downstream AI/review tooling. Authentication is intentionally not included yet.
