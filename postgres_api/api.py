@@ -6,8 +6,10 @@ from sqlalchemy.orm import Session, selectinload
 
 from postgres_api.db import get_session
 from postgres_api.models import (
+    Artifact,
     HKLifeProduct,
     HKLifeProductVersion,
+    IngestionRun,
     Project,
     ReviewTask,
     SourceDocument,
@@ -29,6 +31,13 @@ from postgres_api.schemas import (
 
 router = APIRouter(tags=["catalog"])
 SessionDep = Annotated[Session, Depends(get_session)]
+
+SUPPORTED_REVIEW_SUBJECTS = {
+    "product": HKLifeProduct,
+    "source_document": SourceDocument,
+    "ingestion_run": IngestionRun,
+    "artifact": Artifact,
+}
 
 
 def _nested_project(project: Project) -> NestedProject:
@@ -151,6 +160,20 @@ def _get_project(session: Session, *, project_slug: str | None, project_id: int 
     return project
 
 
+def _validate_review_subject(session: Session, *, project: Project, subject_type: str, subject_id: str) -> None:
+    model = SUPPORTED_REVIEW_SUBJECTS.get(subject_type)
+    if model is None:
+        raise HTTPException(status_code=400, detail="unsupported subject_type")
+    try:
+        subject_pk = int(subject_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="subject_id must be an integer") from exc
+
+    subject = session.scalar(select(model).where(model.id == subject_pk, model.project_id == project.id))
+    if subject is None:
+        raise HTTPException(status_code=404, detail="subject not found in project")
+
+
 @router.get("/projects", response_model=list[ProjectRead])
 def list_projects(session: SessionDep) -> list[ProjectRead]:
     return list(session.scalars(select(Project).order_by(Project.slug)))
@@ -162,6 +185,8 @@ def list_products(
     project_slug: str | None = None,
     insurer_id: int | None = None,
     review_status: str | None = None,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
 ) -> list[ProductListItem]:
     statement = select(HKLifeProduct).options(
         selectinload(HKLifeProduct.project),
@@ -174,7 +199,9 @@ def list_products(
         statement = statement.where(HKLifeProduct.insurer_id == insurer_id)
     if review_status is not None:
         statement = statement.where(HKLifeProduct.status == review_status)
-    products = session.scalars(statement.order_by(HKLifeProduct.canonical_name, HKLifeProduct.id)).all()
+    products = session.scalars(
+        statement.order_by(HKLifeProduct.canonical_name, HKLifeProduct.id).offset(offset).limit(limit)
+    ).all()
     return [_product_list_item(product) for product in products]
 
 
@@ -227,6 +254,12 @@ def list_review_tasks(
 @router.post("/review-tasks", response_model=ReviewTaskRead, status_code=201)
 def create_review_task(payload: ReviewTaskCreate, session: SessionDep) -> ReviewTaskRead:
     project = _get_project(session, project_slug=payload.project_slug, project_id=payload.project_id)
+    _validate_review_subject(
+        session,
+        project=project,
+        subject_type=payload.subject_type,
+        subject_id=payload.subject_id,
+    )
     task = ReviewTask(
         project=project,
         subject_type=payload.subject_type,
@@ -255,7 +288,12 @@ def update_review_task(task_id: int, payload: ReviewTaskUpdate, session: Session
 
 
 @router.get("/exports/products.json", response_model=ProductsExport)
-def export_products(session: SessionDep, project_slug: str | None = None) -> ProductsExport:
+def export_products(
+    session: SessionDep,
+    project_slug: str | None = None,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+) -> ProductsExport:
     statement = select(HKLifeProduct).options(
         selectinload(HKLifeProduct.project),
         selectinload(HKLifeProduct.insurer),
@@ -264,6 +302,8 @@ def export_products(session: SessionDep, project_slug: str | None = None) -> Pro
     )
     if project_slug is not None:
         statement = statement.join(Project, HKLifeProduct.project_id == Project.id).where(Project.slug == project_slug)
-    products = session.scalars(statement.order_by(HKLifeProduct.canonical_name, HKLifeProduct.id)).all()
+    products = session.scalars(
+        statement.order_by(HKLifeProduct.canonical_name, HKLifeProduct.id).offset(offset).limit(limit)
+    ).all()
     product_details = [_product_detail(product) for product in products]
     return ProductsExport(products=product_details, count=len(product_details))

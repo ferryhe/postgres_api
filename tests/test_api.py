@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from postgres_api.db import Base, get_session
 from postgres_api.extractor_import import import_extractor_bundle
 from postgres_api.main import app
-from postgres_api.models import HKLifeProduct, HKLifeProductAlias
+from postgres_api.models import Artifact, HKLifeProduct, HKLifeProductAlias, IngestionRun, Project
 
 
 @pytest.fixture()
@@ -32,7 +32,12 @@ def client() -> Generator[TestClient, None, None]:
         )
         product = session.scalar(select(HKLifeProduct))
         assert product is not None
+        project = session.scalar(select(Project).where(Project.slug == "hk-life"))
+        assert project is not None
+        ingestion_run = session.scalar(select(IngestionRun).where(IngestionRun.project_id == project.id))
+        assert ingestion_run is not None
         session.add(HKLifeProductAlias(product=product, alias="Example WL", locale="en-HK"))
+        session.add(Artifact(project=project, ingestion_run=ingestion_run, artifact_type="fixture", uri="artifact://fixture-a"))
         session.commit()
 
     def override_get_session() -> Generator[Session, None, None]:
@@ -95,6 +100,16 @@ def test_list_products_after_importer(client: TestClient) -> None:
     assert products[0]["status"] == "active"
     assert products[0]["version_count"] == 1
     assert products[0]["latest_version_label"] == "fixture-a:prod-1:v0.1"
+
+
+def test_list_products_pagination(client: TestClient) -> None:
+    response = client.get("/products", params={"project_slug": "hk-life", "limit": 1, "offset": 1})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+    invalid_response = client.get("/products", params={"limit": 101})
+    assert invalid_response.status_code == 422
 
 
 def test_product_detail_includes_versions_aliases_and_latest_metadata(client: TestClient) -> None:
@@ -177,6 +192,64 @@ def test_create_review_task_accepts_project_id(client: TestClient) -> None:
 
     assert response.status_code == 201
     assert response.json()["project"]["id"] == project_id
+
+
+def test_create_review_task_validates_supported_subjects(client: TestClient) -> None:
+    project = client.get("/projects").json()[0]
+    products = client.get("/products", params={"project_slug": project["slug"]}).json()
+    source_documents = client.get("/source-documents", params={"project_slug": project["slug"]}).json()
+
+    for subject_type, subject_id in (
+        ("product", products[0]["id"]),
+        ("source_document", source_documents[0]["id"]),
+        ("ingestion_run", 1),
+        ("artifact", 1),
+    ):
+        response = client.post(
+            "/review-tasks",
+            json={"project_slug": project["slug"], "subject_type": subject_type, "subject_id": str(subject_id)},
+        )
+        assert response.status_code == 201
+        assert response.json()["subject_id"] == str(subject_id)
+
+
+def test_create_review_task_rejects_invalid_subjects(client: TestClient) -> None:
+    project = client.get("/projects").json()[0]
+
+    unsupported_response = client.post(
+        "/review-tasks",
+        json={"project_slug": project["slug"], "subject_type": "document", "subject_id": "1"},
+    )
+    assert unsupported_response.status_code == 400
+    assert unsupported_response.json()["detail"] == "unsupported subject_type"
+
+    non_integer_response = client.post(
+        "/review-tasks",
+        json={"project_slug": project["slug"], "subject_type": "product", "subject_id": "prod-1"},
+    )
+    assert non_integer_response.status_code == 400
+    assert non_integer_response.json()["detail"] == "subject_id must be an integer"
+
+    missing_response = client.post(
+        "/review-tasks",
+        json={"project_slug": project["slug"], "subject_type": "product", "subject_id": "999"},
+    )
+    assert missing_response.status_code == 404
+    assert missing_response.json()["detail"] == "subject not found in project"
+
+
+def test_review_task_input_validation(client: TestClient) -> None:
+    project = client.get("/projects").json()[0]
+    base_payload = {"project_slug": project["slug"], "subject_type": "product", "subject_id": "1"}
+
+    extra_response = client.post("/review-tasks", json={**base_payload, "unexpected": True})
+    assert extra_response.status_code == 422
+
+    invalid_status_response = client.post("/review-tasks", json={**base_payload, "status": "pending"})
+    assert invalid_status_response.status_code == 422
+
+    invalid_priority_response = client.post("/review-tasks", json={**base_payload, "priority": 101})
+    assert invalid_priority_response.status_code == 422
 
 
 def test_create_review_task_requires_project(client: TestClient) -> None:

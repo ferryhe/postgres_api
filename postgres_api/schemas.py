@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+ReviewTaskStatus = Literal["open", "in_progress", "resolved", "rejected", "closed"]
 
 
 class ProjectRead(BaseModel):
@@ -89,11 +91,13 @@ class ReviewTaskRead(BaseModel):
 
 
 class ReviewTaskCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     subject_type: str
     subject_id: str
     notes: str | None = None
-    priority: int = 0
-    status: str = "open"
+    priority: int = Field(default=0, ge=0, le=100)
+    status: ReviewTaskStatus = "open"
     project_slug: str | None = None
     project_id: int | None = None
 
@@ -101,9 +105,9 @@ class ReviewTaskCreate(BaseModel):
 class ReviewTaskUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: str | None = None
+    status: ReviewTaskStatus | None = None
     notes: str | None = None
-    priority: int | None = None
+    priority: int | None = Field(default=None, ge=0, le=100)
 
 
 class ProductsExport(BaseModel):
