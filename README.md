@@ -67,7 +67,7 @@ Expected response:
 
 PR2 imports `life_product_extractor` `candidate.json` or `reviewed.json` bundles with top-level `schema_version` `0.1` into the existing schema. The importer:
 
-- upserts `projects` by slug, `hk_insurers` by canonical name, and `hk_life_products` by insurer + product name;
+- upserts `projects` by slug, `hk_insurers` by canonical name, and `hk_life_products` by project + insurer + product name;
 - creates one `ingestion_runs` row per import with bundle summary/review metadata;
 - maps evidence documents to stable synthetic `source_documents` URLs like `extractor://{fixture_set_id}/{document_id}`;
 - writes quotes to `evidence_spans`; and
